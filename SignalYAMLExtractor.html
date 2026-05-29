@@ -95,6 +95,7 @@
     }
 
     input[type="file"],
+    input[type="search"],
     textarea {
       width: 100%;
       border: 1px solid var(--line);
@@ -110,6 +111,11 @@
       padding: 9px;
     }
 
+    input[type="search"] {
+      min-height: 36px;
+      padding: 7px 10px;
+    }
+
     textarea {
       min-height: 86px;
       padding: 10px 12px;
@@ -119,6 +125,7 @@
 
     textarea:focus,
     input[type="file"]:focus,
+    input[type="search"]:focus,
     button:focus-visible {
       outline: 3px solid rgba(24, 100, 171, 0.22);
       outline-offset: 2px;
@@ -221,7 +228,7 @@
     }
 
     #output {
-      min-height: 560px;
+      min-height: 510px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
       font-size: 13px;
       white-space: pre;
@@ -229,7 +236,7 @@
     }
 
     #excludedOutput {
-      min-height: 560px;
+      min-height: 510px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
       font-size: 13px;
       white-space: pre;
@@ -334,7 +341,7 @@
 
         <label for="excludeInput">EXCLUDE_KEYWORDS</label>
         <textarea id="excludeInput" spellcheck="false" placeholder="lka, ess"></textarea>
-        <p class="hint">Signals containing any exclude keyword are removed. Matching is case-insensitive.</p>
+        <p class="hint">Signals containing any exclude keyword are removed. Matching is case-sensitive.</p>
 
         <div class="row" style="margin-top: 16px;">
           <button id="extractButton" class="primary" type="button">Extract</button>
@@ -349,6 +356,8 @@
           <h2 style="margin: 0;">Matched signals</h2>
           <span class="hint" id="outputSize">0 lines</span>
         </div>
+        <label for="matchedFilter">Filter matched signals</label>
+        <input id="matchedFilter" type="search" spellcheck="false" placeholder="objectFront, FCW">
         <div class="output-wrap">
           <textarea id="output" readonly spellcheck="false"></textarea>
         </div>
@@ -359,6 +368,8 @@
           <h2 style="margin: 0;">Excluded signals</h2>
           <span class="hint" id="excludedSize">0 lines</span>
         </div>
+        <label for="excludedFilter">Filter excluded signals</label>
+        <input id="excludedFilter" type="search" spellcheck="false" placeholder="LKA, ESS">
         <div class="output-wrap">
           <textarea id="excludedOutput" readonly spellcheck="false"></textarea>
         </div>
@@ -389,6 +400,8 @@
     const clearButton = document.getElementById("clearButton");
     const output = document.getElementById("output");
     const excludedOutput = document.getElementById("excludedOutput");
+    const matchedFilter = document.getElementById("matchedFilter");
+    const excludedFilter = document.getElementById("excludedFilter");
     const message = document.getElementById("message");
     const fileList = document.getElementById("fileList");
 
@@ -407,6 +420,8 @@
       await loadFiles(Array.from(fileInput.files || []));
     });
 
+    matchedFilter.addEventListener("input", renderOutputs);
+    excludedFilter.addEventListener("input", renderOutputs);
     extractButton.addEventListener("click", extractSignals);
     downloadButton.addEventListener("click", downloadYaml);
     copyButton.addEventListener("click", copyYaml);
@@ -443,11 +458,9 @@
       state.signals = uniqueInOrder(signals);
       state.matched = [];
       state.excluded = [];
-      output.value = "";
-      excludedOutput.value = "";
+      renderOutputs();
       updateFiles();
       updateMetrics();
-      updateOutputSize();
       downloadButton.disabled = true;
       copyButton.disabled = true;
     }
@@ -507,12 +520,10 @@
 
       state.matched = matched;
       state.excluded = excluded;
-      output.value = matched.join("\n") + (matched.length > 0 ? "\n" : "");
-      excludedOutput.value = excluded.join("\n") + (excluded.length > 0 ? "\n" : "");
+      renderOutputs();
       downloadButton.disabled = matched.length === 0;
       copyButton.disabled = matched.length === 0;
       updateMetrics();
-      updateOutputSize();
       setMessage(`Extracted ${matched.length} signal(s) into ${OUTPUT_FILENAME}.`, matched.length ? "ok" : "");
     }
 
@@ -529,6 +540,30 @@
       return `- ${signal.replaceAll(".", "/")}`;
     }
 
+    function renderOutputs() {
+      const visibleMatched = filterLines(state.matched, matchedFilter.value);
+      const visibleExcluded = filterLines(state.excluded, excludedFilter.value);
+      output.value = yamlFromLines(visibleMatched);
+      excludedOutput.value = yamlFromLines(visibleExcluded);
+      updateOutputSize(visibleMatched.length, visibleExcluded.length);
+    }
+
+    function filterLines(lines, filterText) {
+      const filters = parseKeywords(filterText, true);
+      if (filters.length === 0) {
+        return lines;
+      }
+
+      return lines.filter((line) => {
+        const haystack = line.toLowerCase();
+        return filters.some((filter) => haystack.includes(filter));
+      });
+    }
+
+    function yamlFromLines(lines) {
+      return lines.join("\n") + (lines.length > 0 ? "\n" : "");
+    }
+
     function uniqueInOrder(values) {
       const seen = new Set();
       const unique = [];
@@ -542,7 +577,7 @@
     }
 
     function downloadYaml() {
-      const blob = new Blob([output.value], { type: "application/x-yaml;charset=utf-8" });
+      const blob = new Blob([yamlFromLines(state.matched)], { type: "application/x-yaml;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -555,7 +590,7 @@
 
     async function copyYaml() {
       try {
-        await navigator.clipboard.writeText(output.value);
+        await navigator.clipboard.writeText(yamlFromLines(state.matched));
         setMessage("YAML copied to clipboard.", "ok");
       } catch (error) {
         setMessage(`Unable to copy YAML: ${error.message}`, "error");
@@ -568,11 +603,9 @@
       state.matched = [];
       state.excluded = [];
       fileInput.value = "";
-      output.value = "";
-      excludedOutput.value = "";
+      renderOutputs();
       updateFiles();
       updateMetrics();
-      updateOutputSize();
       downloadButton.disabled = true;
       copyButton.disabled = true;
       setMessage("Cleared loaded files. Keyword settings remain saved.", "");
@@ -594,9 +627,14 @@
       document.getElementById("excludeCount").textContent = state.excluded.length;
     }
 
-    function updateOutputSize() {
-      document.getElementById("outputSize").textContent = `${state.matched.length} line${state.matched.length === 1 ? "" : "s"}`;
-      document.getElementById("excludedSize").textContent = `${state.excluded.length} line${state.excluded.length === 1 ? "" : "s"}`;
+    function updateOutputSize(visibleMatched = state.matched.length, visibleExcluded = state.excluded.length) {
+      document.getElementById("outputSize").textContent = formatVisibleCount(visibleMatched, state.matched.length);
+      document.getElementById("excludedSize").textContent = formatVisibleCount(visibleExcluded, state.excluded.length);
+    }
+
+    function formatVisibleCount(visible, total) {
+      const suffix = total === 1 ? "line" : "lines";
+      return visible === total ? `${total} ${suffix}` : `${visible} / ${total} ${suffix}`;
     }
 
     function setMessage(text, type) {
