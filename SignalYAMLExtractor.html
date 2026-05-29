@@ -484,8 +484,8 @@
         return;
       }
 
-      const includeKeywords = parseKeywords(includeInput.value);
-      const excludeKeywords = parseKeywords(excludeInput.value);
+      const includeKeywords = parseKeywords(includeInput.value, true);
+      const excludeKeywords = parseKeywords(excludeInput.value, false);
       const matched = [];
       const excluded = [];
 
@@ -496,7 +496,7 @@
           continue;
         }
 
-        const shouldExclude = excludeKeywords.some((keyword) => haystack.includes(keyword));
+        const shouldExclude = excludeKeywords.some((keyword) => signal.includes(keyword));
         if (shouldExclude) {
           excluded.push(formatSignal(signal));
           continue;
@@ -516,11 +516,13 @@
       setMessage(`Extracted ${matched.length} signal(s) into ${OUTPUT_FILENAME}.`, matched.length ? "ok" : "");
     }
 
-    function parseKeywords(text) {
-      return text
+    function parseKeywords(text, normalizeCase) {
+      const keywords = text
         .split(/[\s,;]+/u)
-        .map((keyword) => keyword.trim().toLowerCase())
+        .map((keyword) => keyword.trim())
         .filter(Boolean);
+
+      return normalizeCase ? keywords.map((keyword) => keyword.toLowerCase()) : keywords;
     }
 
     function formatSignal(signal) {
