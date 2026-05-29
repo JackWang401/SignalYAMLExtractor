@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SignalYAMLExtractor</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --text: #172033;
+      --muted: #607086;
+      --line: #d8dee8;
+      --accent: #1864ab;
+      --accent-strong: #124f87;
+      --danger: #b42318;
+      --ok: #087f5b;
+      --shadow: 0 10px 28px rgba(22, 31, 48, 0.08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    main {
+      width: calc(100vw - 16px);
+      margin: 0 auto;
+      padding: 16px 0;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.15;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 2fr) minmax(360px, 4fr) minmax(360px, 4fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    section,
+    .status-bar {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    section {
+      padding: 14px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 16px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 7px;
+      color: #2d3a4f;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    input[type="file"],
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+    }
+
+    input[type="file"] {
+      min-height: 42px;
+      padding: 9px;
+    }
+
+    textarea {
+      min-height: 86px;
+      padding: 10px 12px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    textarea:focus,
+    input[type="file"]:focus,
+    button:focus-visible {
+      outline: 3px solid rgba(24, 100, 171, 0.22);
+      outline-offset: 2px;
+    }
+
+    .hint {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 12px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    button.primary:hover {
+      background: var(--accent-strong);
+    }
+
+    button:hover {
+      border-color: #a9b5c6;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .status-bar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .metric {
+      padding: 14px 16px;
+      border-right: 1px solid var(--line);
+    }
+
+    .metric:last-child {
+      border-right: 0;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .message {
+      min-height: 20px;
+      margin-top: 12px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .message.error {
+      color: var(--danger);
+    }
+
+    .message.ok {
+      color: var(--ok);
+    }
+
+    .output-wrap {
+      position: relative;
+    }
+
+    #output {
+      min-height: 560px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      white-space: pre;
+      overflow: auto;
+    }
+
+    #excludedOutput {
+      min-height: 560px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      white-space: pre;
+      overflow: auto;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .file-list {
+      margin: 10px 0 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+      max-height: 90px;
+      overflow: auto;
+    }
+
+    @media (max-width: 860px) {
+      main {
+        width: min(100% - 16px, 720px);
+        padding: 18px 0;
+      }
+
+      header,
+      .grid {
+        display: block;
+      }
+
+      header .row {
+        margin-top: 14px;
+      }
+
+      section + section {
+        margin-top: 16px;
+      }
+
+      .status-bar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .metric:nth-child(2) {
+        border-right: 0;
+      }
+
+      .metric:nth-child(-n + 2) {
+        border-bottom: 1px solid var(--line);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>SignalYAMLExtractor</h1>
+        <p class="subtitle">Extract matching signal names from JSON and export as as_long_vcs_signals.yaml.</p>
+      </div>
+      <div class="row">
+        <button id="clearButton" type="button">Clear</button>
+      </div>
+    </header>
+
+    <div class="status-bar" aria-live="polite">
+      <div class="metric">
+        <span>JSON files</span>
+        <strong id="fileCount">0</strong>
+      </div>
+      <div class="metric">
+        <span>Raw signals</span>
+        <strong id="rawCount">0</strong>
+      </div>
+      <div class="metric">
+        <span>Matched</span>
+        <strong id="matchCount">0</strong>
+      </div>
+      <div class="metric">
+        <span>Excluded</span>
+        <strong id="excludeCount">0</strong>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section>
+        <h2>Inputs</h2>
+
+        <label for="fileInput">Signal JSON files</label>
+        <input id="fileInput" type="file" accept=".json,application/json" multiple>
+        <p class="hint">Select the two files from raw_signals.</p>
+        <ul id="fileList" class="file-list"></ul>
+
+        <label for="includeInput">INCLUDE_KEYWORDS</label>
+        <textarea id="includeInput" spellcheck="false" placeholder="aeb, fcw"></textarea>
+        <p class="hint">Comma, newline, or space separated. Empty include list matches all signals.</p>
+
+        <label for="excludeInput">EXCLUDE_KEYWORDS</label>
+        <textarea id="excludeInput" spellcheck="false" placeholder="lka, ess"></textarea>
+        <p class="hint">Signals containing any exclude keyword are removed. Matching is case-insensitive.</p>
+
+        <div class="row" style="margin-top: 16px;">
+          <button id="extractButton" class="primary" type="button">Extract</button>
+          <button id="downloadButton" type="button" disabled>Download YAML</button>
+          <button id="copyButton" type="button" disabled>Copy</button>
+        </div>
+        <div id="message" class="message">Keyword settings are saved automatically in this browser.</div>
+      </section>
+
+      <section>
+        <div class="toolbar">
+          <h2 style="margin: 0;">Matched signals</h2>
+          <span class="hint" id="outputSize">0 lines</span>
+        </div>
+        <div class="output-wrap">
+          <textarea id="output" readonly spellcheck="false"></textarea>
+        </div>
+      </section>
+
+      <section>
+        <div class="toolbar">
+          <h2 style="margin: 0;">Excluded signals</h2>
+          <span class="hint" id="excludedSize">0 lines</span>
+        </div>
+        <div class="output-wrap">
+          <textarea id="excludedOutput" readonly spellcheck="false"></textarea>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const OUTPUT_FILENAME = "as_long_vcs_signals.yaml";
+    const STORAGE_KEYS = {
+      include: "signalExtractor.includeKeywords",
+      exclude: "signalExtractor.excludeKeywords"
+    };
+
+    const state = {
+      files: [],
+      signals: [],
+      matched: [],
+      excluded: []
+    };
+
+    const fileInput = document.getElementById("fileInput");
+    const includeInput = document.getElementById("includeInput");
+    const excludeInput = document.getElementById("excludeInput");
+    const extractButton = document.getElementById("extractButton");
+    const downloadButton = document.getElementById("downloadButton");
+    const copyButton = document.getElementById("copyButton");
+    const clearButton = document.getElementById("clearButton");
+    const output = document.getElementById("output");
+    const excludedOutput = document.getElementById("excludedOutput");
+    const message = document.getElementById("message");
+    const fileList = document.getElementById("fileList");
+
+    includeInput.value = localStorage.getItem(STORAGE_KEYS.include) || "";
+    excludeInput.value = localStorage.getItem(STORAGE_KEYS.exclude) || "";
+
+    includeInput.addEventListener("input", () => {
+      localStorage.setItem(STORAGE_KEYS.include, includeInput.value);
+    });
+
+    excludeInput.addEventListener("input", () => {
+      localStorage.setItem(STORAGE_KEYS.exclude, excludeInput.value);
+    });
+
+    fileInput.addEventListener("change", async () => {
+      await loadFiles(Array.from(fileInput.files || []));
+    });
+
+    extractButton.addEventListener("click", extractSignals);
+    downloadButton.addEventListener("click", downloadYaml);
+    copyButton.addEventListener("click", copyYaml);
+    clearButton.addEventListener("click", clearAll);
+
+    async function loadFiles(files) {
+      const jsonFiles = files.filter((file) => file.name.toLowerCase().endsWith(".json"));
+      if (jsonFiles.length === 0) {
+        setMessage("No JSON files selected.", "error");
+        return;
+      }
+
+      const loadedSignals = [];
+      const loadedFiles = [];
+
+      try {
+        for (const file of jsonFiles) {
+          const text = await file.text();
+          const json = JSON.parse(text);
+          loadedSignals.push(...collectSignalNames(json));
+          loadedFiles.push(file.webkitRelativePath || file.name);
+        }
+      } catch (error) {
+        setMessage(`Unable to parse JSON: ${error.message}`, "error");
+        return;
+      }
+
+      setLoadedSignals(loadedFiles, loadedSignals);
+      setMessage(`Loaded ${state.signals.length} unique signals from ${state.files.length} JSON file(s).`, "ok");
+    }
+
+    function setLoadedSignals(files, signals) {
+      state.files = files;
+      state.signals = uniqueInOrder(signals);
+      state.matched = [];
+      state.excluded = [];
+      output.value = "";
+      excludedOutput.value = "";
+      updateFiles();
+      updateMetrics();
+      updateOutputSize();
+      downloadButton.disabled = true;
+      copyButton.disabled = true;
+    }
+
+    function collectSignalNames(value) {
+      const names = [];
+      walk(value);
+      return names;
+
+      function walk(node) {
+        if (!node || typeof node !== "object" || Array.isArray(node)) {
+          return;
+        }
+
+        for (const [key, child] of Object.entries(node)) {
+          if (isSignalName(key)) {
+            names.push(key);
+          }
+
+          if (child && typeof child === "object" && !Array.isArray(child)) {
+            walk(child);
+          }
+        }
+      }
+    }
+
+    function isSignalName(key) {
+      return typeof key === "string" && key.includes(".") && key.trim().length > 0;
+    }
+
+    function extractSignals() {
+      if (state.signals.length === 0) {
+        setMessage("Select JSON files before extracting.", "error");
+        return;
+      }
+
+      const includeKeywords = parseKeywords(includeInput.value);
+      const excludeKeywords = parseKeywords(excludeInput.value);
+      const matched = [];
+      const excluded = [];
+
+      for (const signal of state.signals) {
+        const haystack = signal.toLowerCase();
+        const included = includeKeywords.length === 0 || includeKeywords.some((keyword) => haystack.includes(keyword));
+        if (!included) {
+          continue;
+        }
+
+        const shouldExclude = excludeKeywords.some((keyword) => haystack.includes(keyword));
+        if (shouldExclude) {
+          excluded.push(formatSignal(signal));
+          continue;
+        }
+
+        matched.push(formatSignal(signal));
+      }
+
+      state.matched = matched;
+      state.excluded = excluded;
+      output.value = matched.join("\n") + (matched.length > 0 ? "\n" : "");
+      excludedOutput.value = excluded.join("\n") + (excluded.length > 0 ? "\n" : "");
+      downloadButton.disabled = matched.length === 0;
+      copyButton.disabled = matched.length === 0;
+      updateMetrics();
+      updateOutputSize();
+      setMessage(`Extracted ${matched.length} signal(s) into ${OUTPUT_FILENAME}.`, matched.length ? "ok" : "");
+    }
+
+    function parseKeywords(text) {
+      return text
+        .split(/[\s,;]+/u)
+        .map((keyword) => keyword.trim().toLowerCase())
+        .filter(Boolean);
+    }
+
+    function formatSignal(signal) {
+      return `- ${signal.replaceAll(".", "/")}`;
+    }
+
+    function uniqueInOrder(values) {
+      const seen = new Set();
+      const unique = [];
+      for (const value of values) {
+        if (!seen.has(value)) {
+          seen.add(value);
+          unique.push(value);
+        }
+      }
+      return unique;
+    }
+
+    function downloadYaml() {
+      const blob = new Blob([output.value], { type: "application/x-yaml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = OUTPUT_FILENAME;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function copyYaml() {
+      try {
+        await navigator.clipboard.writeText(output.value);
+        setMessage("YAML copied to clipboard.", "ok");
+      } catch (error) {
+        setMessage(`Unable to copy YAML: ${error.message}`, "error");
+      }
+    }
+
+    function clearAll() {
+      state.files = [];
+      state.signals = [];
+      state.matched = [];
+      state.excluded = [];
+      fileInput.value = "";
+      output.value = "";
+      excludedOutput.value = "";
+      updateFiles();
+      updateMetrics();
+      updateOutputSize();
+      downloadButton.disabled = true;
+      copyButton.disabled = true;
+      setMessage("Cleared loaded files. Keyword settings remain saved.", "");
+    }
+
+    function updateFiles() {
+      fileList.innerHTML = "";
+      for (const file of state.files) {
+        const item = document.createElement("li");
+        item.textContent = file;
+        fileList.appendChild(item);
+      }
+    }
+
+    function updateMetrics() {
+      document.getElementById("fileCount").textContent = state.files.length;
+      document.getElementById("rawCount").textContent = state.signals.length;
+      document.getElementById("matchCount").textContent = state.matched.length;
+      document.getElementById("excludeCount").textContent = state.excluded.length;
+    }
+
+    function updateOutputSize() {
+      document.getElementById("outputSize").textContent = `${state.matched.length} line${state.matched.length === 1 ? "" : "s"}`;
+      document.getElementById("excludedSize").textContent = `${state.excluded.length} line${state.excluded.length === 1 ? "" : "s"}`;
+    }
+
+    function setMessage(text, type) {
+      message.textContent = text;
+      message.className = `message${type ? ` ${type}` : ""}`;
+    }
+  </script>
+</body>
+</html>
