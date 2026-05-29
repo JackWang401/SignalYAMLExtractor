@@ -96,6 +96,7 @@
 
     input[type="file"],
     input[type="search"],
+    input[type="text"],
     textarea {
       width: 100%;
       border: 1px solid var(--line);
@@ -111,7 +112,8 @@
       padding: 9px;
     }
 
-    input[type="search"] {
+    input[type="search"],
+    input[type="text"] {
       min-height: 36px;
       padding: 7px 10px;
     }
@@ -126,6 +128,7 @@
     textarea:focus,
     input[type="file"]:focus,
     input[type="search"]:focus,
+    input[type="text"]:focus,
     button:focus-visible {
       outline: 3px solid rgba(24, 100, 171, 0.22);
       outline-offset: 2px;
@@ -343,6 +346,10 @@
         <textarea id="excludeInput" spellcheck="false" placeholder="lka, ess"></textarea>
         <p class="hint">Signals containing any exclude keyword are removed. Matching is case-sensitive.</p>
 
+        <label for="filenameInput">Export YAML filename</label>
+        <input id="filenameInput" type="text" spellcheck="false" value="as_long_vcs_signals.yaml">
+        <p class="hint">The .yaml extension is added automatically when omitted.</p>
+
         <div class="row" style="margin-top: 16px;">
           <button id="extractButton" class="primary" type="button">Extract</button>
           <button id="downloadButton" type="button" disabled>Download YAML</button>
@@ -381,7 +388,8 @@
     const OUTPUT_FILENAME = "as_long_vcs_signals.yaml";
     const STORAGE_KEYS = {
       include: "signalExtractor.includeKeywords",
-      exclude: "signalExtractor.excludeKeywords"
+      exclude: "signalExtractor.excludeKeywords",
+      filename: "signalExtractor.exportFilename"
     };
 
     const state = {
@@ -394,6 +402,7 @@
     const fileInput = document.getElementById("fileInput");
     const includeInput = document.getElementById("includeInput");
     const excludeInput = document.getElementById("excludeInput");
+    const filenameInput = document.getElementById("filenameInput");
     const extractButton = document.getElementById("extractButton");
     const downloadButton = document.getElementById("downloadButton");
     const copyButton = document.getElementById("copyButton");
@@ -407,6 +416,7 @@
 
     includeInput.value = localStorage.getItem(STORAGE_KEYS.include) || "";
     excludeInput.value = localStorage.getItem(STORAGE_KEYS.exclude) || "";
+    filenameInput.value = localStorage.getItem(STORAGE_KEYS.filename) || OUTPUT_FILENAME;
 
     includeInput.addEventListener("input", () => {
       localStorage.setItem(STORAGE_KEYS.include, includeInput.value);
@@ -414,6 +424,10 @@
 
     excludeInput.addEventListener("input", () => {
       localStorage.setItem(STORAGE_KEYS.exclude, excludeInput.value);
+    });
+
+    filenameInput.addEventListener("input", () => {
+      localStorage.setItem(STORAGE_KEYS.filename, filenameInput.value);
     });
 
     fileInput.addEventListener("change", async () => {
@@ -524,7 +538,7 @@
       downloadButton.disabled = matched.length === 0;
       copyButton.disabled = matched.length === 0;
       updateMetrics();
-      setMessage(`Extracted ${matched.length} signal(s) into ${OUTPUT_FILENAME}.`, matched.length ? "ok" : "");
+      setMessage(`Extracted ${matched.length} signal(s) into ${getExportFilename()}.`, matched.length ? "ok" : "");
     }
 
     function parseKeywords(text, normalizeCase) {
@@ -581,7 +595,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = OUTPUT_FILENAME;
+      link.download = getExportFilename();
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -595,6 +609,12 @@
       } catch (error) {
         setMessage(`Unable to copy YAML: ${error.message}`, "error");
       }
+    }
+
+    function getExportFilename() {
+      const rawName = filenameInput.value.trim() || OUTPUT_FILENAME;
+      const safeName = rawName.replace(/[\\/:*?"<>|]+/g, "_");
+      return /\.(ya?ml)$/i.test(safeName) ? safeName : `${safeName}.yaml`;
     }
 
     function clearAll() {
